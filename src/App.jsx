@@ -145,7 +145,7 @@ export default function App() {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="price">Celková cena zboží</label>
+          <label htmlFor="price">Celková cena zboží včetně dopravy</label>
           <div className={styles.priceInput}>
             <input
               id="price"
