@@ -6,15 +6,19 @@ import {
   fetchExchangeRates,
   type SupportedCurrencyCode,
 } from './api/exchangeRates';
+import {
+  LOW_VALUE_DUTY_PER_ITEM_EUR,
+  LOW_VALUE_DUTY_START_DATE,
+  LOW_VALUE_THRESHOLD_EUR,
+  VAT_RATE,
+  calculateCustomsFees,
+} from './lib/customsCalculation';
 import { RATES_STALE_TIME_MS } from './queryClient';
 import styles from './App.module.css';
 
-const VAT_RATE = 0.21;
-const TAX_RATE = 0.03;
 const HANDLING_FEE_CZK = 350;
+const TAX_RATE = 0.03;
 const PAYPAL_CONVERSION_MARKUP = 0.04;
-const LOW_VALUE_THRESHOLD_EUR = 150;
-const LOW_VALUE_DUTY_PER_ITEM_EUR = 3;
 const CUSTOMS_PORTAL_URL =
   'https://cportal.celnisprava.gov.cz/web/portal/celni-prohlaseni';
 
@@ -45,10 +49,18 @@ function formatRate(value: number) {
   }).format(value);
 }
 
+function formatDutyStartDate() {
+  return new Intl.DateTimeFormat('cs-CZ', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  }).format(LOW_VALUE_DUTY_START_DATE);
+}
+
 export default function App() {
   const [currency, setCurrency] = useState<SupportedCurrencyCode>('TWD');
   const [price, setPrice] = useState('');
-  const [itemCount, setItemCount] = useState('1');
+  const [tariffLineCount, setTariffLineCount] = useState('1');
 
   const {
     data: rates = FALLBACK_RATES,
@@ -70,15 +82,17 @@ export default function App() {
     : null;
 
   const numericPrice = parseFloat(price.replace(',', '.')) || 0;
-  const numericItemCount = Math.max(1, parseInt(itemCount, 10) || 1);
+  const numericTariffLines = Math.max(1, parseInt(tariffLineCount, 10) || 1);
   const rate = rates[currency] ?? 0;
 
   const {
     priceCzk,
     priceEur,
     isLowValueShipment,
+    lowValueDutyApplies,
     vatAmount,
     taxAmount,
+    handlingFee,
     feesTotal,
     paypalSurcharge,
     customsTotal,
@@ -87,29 +101,28 @@ export default function App() {
     const converted = numericPrice * rate;
     const eurRate = rates.EUR ?? FALLBACK_RATES.EUR;
     const inEur = eurRate > 0 ? converted / eurRate : 0;
-    const lowValue = inEur > 0 && inEur < LOW_VALUE_THRESHOLD_EUR;
-    const vat = converted * VAT_RATE;
-    const afterVat = converted * (1 + VAT_RATE);
-    const perItemDutyCzk = numericItemCount * LOW_VALUE_DUTY_PER_ITEM_EUR * eurRate;
-    const tax = lowValue ? perItemDutyCzk : afterVat * TAX_RATE;
-    const handling = lowValue ? 0 : HANDLING_FEE_CZK;
-    const customs = lowValue
-      ? afterVat + perItemDutyCzk
-      : afterVat * (1 + TAX_RATE) + HANDLING_FEE_CZK;
+    const customs = calculateCustomsFees({
+      priceCzk: converted,
+      priceEur: inEur,
+      tariffLineCount: numericTariffLines,
+      eurRateCzk: eurRate,
+    });
     const paypalExtra = converted * PAYPAL_CONVERSION_MARKUP;
 
     return {
       priceCzk: converted,
       priceEur: inEur,
-      isLowValueShipment: lowValue,
-      vatAmount: vat,
-      taxAmount: tax,
-      feesTotal: vat + tax + handling,
+      isLowValueShipment: customs.isLowValueShipment,
+      lowValueDutyApplies: customs.lowValueDutyApplies,
+      vatAmount: customs.vatAmount,
+      taxAmount: customs.taxAmount,
+      handlingFee: customs.handlingFee,
+      feesTotal: customs.feesTotal,
       paypalSurcharge: paypalExtra,
-      customsTotal: customs,
-      grandTotal: customs + paypalExtra,
+      customsTotal: customs.customsTotal,
+      grandTotal: customs.customsTotal + paypalExtra,
     };
-  }, [numericPrice, numericItemCount, rate, rates.EUR]);
+  }, [numericPrice, numericTariffLines, rate, rates.EUR]);
 
   const hasInput = numericPrice > 0;
 
@@ -161,19 +174,20 @@ export default function App() {
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="itemCount">Počet položek v zásilce</label>
+              <label htmlFor="tariffLineCount">Počet druhů zboží (celní položky)</label>
               <input
-                id="itemCount"
+                id="tariffLineCount"
                 type="number"
                 min="1"
                 step="1"
                 placeholder="1"
-                value={itemCount}
-                onChange={(e) => setItemCount(e.target.value)}
+                value={tariffLineCount}
+                onChange={(e) => setTariffLineCount(e.target.value)}
               />
               <span className={styles.fieldHint}>
-                U zásilek pod {LOW_VALUE_THRESHOLD_EUR} EUR: clo {LOW_VALUE_DUTY_PER_ITEM_EUR}{' '}
-                EUR za každou položku
+                U zásilek do {LOW_VALUE_THRESHOLD_EUR} EUR od 1. 7. 2026: clo{' '}
+                {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za každý druh zboží (ne za kus). Více kusů
+                stejného produktu = 1 položka.
               </span>
             </div>
 
@@ -181,18 +195,10 @@ export default function App() {
               {ratesLoading ? (
                 <span>Načítám kurz…</span>
               ) : (
-                <>
-                  <span>
-                    1 {currency} = {formatRate(rate)} Kč
-                  </span>
-                  <span>
-                    1 EUR = {formatRate(rates.EUR ?? FALLBACK_RATES.EUR)} Kč
-                  </span>
-                </>
-              )}
-              {hasInput && (
-                <span className={styles.conversionValue}>
-                  Přepočet ceny: {formatEur(priceEur)} · {formatCzk(priceCzk)}
+                <span>
+                  {currency === 'EUR'
+                    ? `1 EUR = ${formatRate(rate)} Kč`
+                    : `1 ${currency} = ${formatRate(rate)} Kč · 1 EUR = ${formatRate(rates.EUR ?? FALLBACK_RATES.EUR)} Kč`}
                 </span>
               )}
               {ratesError && (
@@ -221,8 +227,11 @@ export default function App() {
                 Zásilka pod {LOW_VALUE_THRESHOLD_EUR} EUR
               </h2>
               <p>
-                Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH a clo{' '}
-                {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za položku.
+                Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH
+                {lowValueDutyApplies
+                  ? ` a clo ${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží`
+                  : `, clo se do ${formatDutyStartDate()} neplatí`}
+                .
               </p>
               <p>
                 Nemusíte podávat prohlášení přes Českou poštu. Volitelně můžete podat
@@ -230,8 +239,8 @@ export default function App() {
                 <a href={CUSTOMS_PORTAL_URL} target="_blank" rel="noopener noreferrer">
                   cPortál Celní správy
                 </a>
-                , která informace a balík následně předá poště. DPH ({VAT_RATE * 100} %) se
-                hradí i u zásilek pod {LOW_VALUE_THRESHOLD_EUR} EUR.
+                . Pokud jste DPH uhradili na e-shopu (IOSS), uveďte IOSS číslo — jinak hrozí
+                dvojí vyměření DPH.
               </p>
             </aside>
           )}
@@ -254,11 +263,17 @@ export default function App() {
               <div className={styles.resultRow}>
                 <span className={styles.resultLabel}>
                   {isLowValueShipment
-                    ? `Clo (${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR × ${numericItemCount} ks)`
+                    ? lowValueDutyApplies
+                      ? `Clo (${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR × ${numericTariffLines} druhů)`
+                      : 'Clo'
                     : `Clo (${TAX_RATE * 100} %)`}
                 </span>
                 <span className={styles.resultValueMuted}>
-                  {hasInput ? formatCzk(taxAmount) : '—'}
+                  {hasInput
+                    ? isLowValueShipment && !lowValueDutyApplies
+                      ? 'Není třeba'
+                      : formatCzk(taxAmount)
+                    : '—'}
                 </span>
               </div>
               <div className={styles.resultRow}>
@@ -267,7 +282,7 @@ export default function App() {
                   {hasInput
                     ? isLowValueShipment
                       ? 'Není třeba'
-                      : formatCzk(HANDLING_FEE_CZK)
+                      : formatCzk(handlingFee)
                     : '—'}
                 </span>
               </div>
@@ -281,7 +296,7 @@ export default function App() {
             </div>
 
             <div className={`${styles.resultRow} ${styles.resultHighlight}`}>
-              <span className={styles.resultLabel}>Odhadovaná částka k úhradě</span>
+              <span className={styles.resultLabel}>Celkem včetně zboží a poplatků (odhad)</span>
               <span className={styles.resultValueLarge}>
                 {hasInput ? formatCzk(customsTotal) : '—'}
               </span>
@@ -308,10 +323,9 @@ export default function App() {
 
       <footer className={styles.footer}>
         <p>
-          Výpočet: cena × 1,21 (DPH {VAT_RATE * 100} %) × 1,03 (clo {TAX_RATE * 100} %) +{' '}
-          {HANDLING_FEE_CZK} Kč poplatek za zastoupení Českou poštou. U zásilek pod{' '}
-          {LOW_VALUE_THRESHOLD_EUR} EUR: cena × 1,21 (DPH) + {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR
-          × počet položek (clo), bez poplatku České pošty).
+          Nad {LOW_VALUE_THRESHOLD_EUR} EUR: DPH {VAT_RATE * 100} % + clo {TAX_RATE * 100} % +
+          poplatek České pošty {HANDLING_FEE_CZK} Kč. Do {LOW_VALUE_THRESHOLD_EUR} EUR: pouze
+          DPH; od 1. 7. 2026 navíc clo {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží.
         </p>
         <p>
           Celkem včetně PayPal: odhadovaná částka k úhradě + cca{' '}
