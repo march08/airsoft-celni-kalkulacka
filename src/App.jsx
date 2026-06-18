@@ -169,7 +169,9 @@ export default function App() {
         </p>
       </header>
 
-      <section className={styles.card}>
+      <div className={styles.layout}>
+        <div className={styles.column}>
+          <section className={styles.card}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Měna ceny</span>
           <div className={styles.currencyToggle} role="group" aria-label="Měna ceny">
@@ -238,38 +240,40 @@ export default function App() {
         </div>
       </section>
 
-      <aside className={styles.paypalInfo}>
-        <h2 className={styles.paypalTitle}>Platba přes PayPal</h2>
-        <p>
-          <strong>Nepoužívejte PayPal konverzi měny.</strong> Při platbě zvolte měnu
-          prodejce ({currency}) a nechte převod na své bance nebo kartě — PayPal kurz
-          bývá o cca {PAYPAL_CONVERSION_MARKUP * 100} % horší a účtuje další poplatky za
-          mezinárodní transakce.
-        </p>
-      </aside>
+          <aside className={styles.paypalInfo}>
+            <h2 className={styles.paypalTitle}>Platba přes PayPal</h2>
+            <p>
+              <strong>Nepoužívejte PayPal konverzi měny.</strong> Při platbě zvolte měnu
+              prodejce ({currency}) a nechte převod na své bance nebo kartě — PayPal kurz
+              bývá o cca {PAYPAL_CONVERSION_MARKUP * 100} % horší a účtuje další poplatky za
+              mezinárodní transakce.
+            </p>
+          </aside>
+        </div>
 
-      {hasInput && isLowValueShipment && (
-        <aside className={styles.lowValueInfo}>
-          <h2 className={styles.lowValueTitle}>
-            Zásilka pod {LOW_VALUE_THRESHOLD_EUR} EUR
-          </h2>
-          <p>
-            Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH a clo{' '}
-            {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za položku.
-          </p>
-          <p>
-            Nemusíte podávat prohlášení přes Českou poštu. Volitelně můžete podat
-            elektronické celní prohlášení přes{' '}
-            <a href={CUSTOMS_PORTAL_URL} target="_blank" rel="noopener noreferrer">
-              cPortál Celní správy
-            </a>
-            , která informace a balík následně předá poště. DPH ({VAT_RATE * 100} %) se hradí i u zásilek pod {LOW_VALUE_THRESHOLD_EUR}{' '}
-            EUR.
-          </p>
-        </aside>
-      )}
+        <div className={styles.column}>
+          {hasInput && isLowValueShipment && (
+            <aside className={styles.lowValueInfo}>
+              <h2 className={styles.lowValueTitle}>
+                Zásilka pod {LOW_VALUE_THRESHOLD_EUR} EUR
+              </h2>
+              <p>
+                Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH a clo{' '}
+                {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za položku.
+              </p>
+              <p>
+                Nemusíte podávat prohlášení přes Českou poštu. Volitelně můžete podat
+                elektronické celní prohlášení přes{' '}
+                <a href={CUSTOMS_PORTAL_URL} target="_blank" rel="noopener noreferrer">
+                  cPortál Celní správy
+                </a>
+                , která informace a balík následně předá poště. DPH ({VAT_RATE * 100} %) se
+                hradí i u zásilek pod {LOW_VALUE_THRESHOLD_EUR} EUR.
+              </p>
+            </aside>
+          )}
 
-      <section className={styles.results}>
+          <section className={styles.results}>
         <div className={styles.resultRow}>
           <span className={styles.resultLabel}>Cena zboží v Kč</span>
           <span className={styles.resultValue}>
@@ -336,6 +340,8 @@ export default function App() {
           </span>
         </div>
       </section>
+        </div>
+      </div>
 
       <footer className={styles.footer}>
         <p>
