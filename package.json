@@ -2,11 +2,11 @@
   "name": "airsoft-celni-kalkulacka",
   "private": true,
   "version": "1.0.0",
-  "description": "Kalkulačka DPH a cla pro dovoz airsoft zboží do České republiky",
+  "description": "Kalkulačka DPH a cla pro dovoz airsoftových zbraní a dílů do České republiky",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server && node scripts/prerender.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

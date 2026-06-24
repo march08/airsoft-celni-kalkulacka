@@ -2,6 +2,21 @@ export const CURRENCY_CODES = ['USD', 'EUR', 'TWD', 'HKD'] as const;
 
 export type SupportedCurrencyCode = (typeof CURRENCY_CODES)[number];
 
+export function getCurrencySymbol(
+  locale: string,
+  currency: SupportedCurrencyCode
+) {
+  return (0)
+    .toLocaleString(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+    .replace(/\d/g, '')
+    .trim();
+}
+
 export type ExchangeRates = Record<SupportedCurrencyCode, number>;
 
 export const FALLBACK_RATES: ExchangeRates = {

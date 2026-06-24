@@ -4,6 +4,7 @@ import {
   CURRENCY_CODES,
   FALLBACK_RATES,
   fetchExchangeRates,
+  getCurrencySymbol,
   type SupportedCurrencyCode,
 } from './api/exchangeRates';
 import {
@@ -25,6 +26,7 @@ const EORI_AD_HOC_URL =
   'https://celnisprava.gov.cz/cz/aplikace/Stranky/eoriadhoc.aspx';
 
 const CURRENCIES = CURRENCY_CODES;
+const APP_LOCALE = 'cs-CZ';
 
 function formatCzk(value: number) {
   return new Intl.NumberFormat('cs-CZ', {
@@ -125,7 +127,7 @@ export default function App() {
       <header className={styles.header}>
         <h1 className={styles.title}>Airsoft celní kalkulačka</h1>
         <p className={styles.subtitle}>
-          Odhad nákladů na dovoz airsoftových věcí do ČR
+          Odhad nákladů na dovoz airsoftových zbraní a dílů do ČR
         </p>
       </header>
 
@@ -145,7 +147,10 @@ export default function App() {
                     aria-pressed={currency === code}
                     onClick={() => setCurrency(code)}
                   >
-                    {code}
+                    <span className={styles.currencyButtonSymbol}>
+                      {getCurrencySymbol(APP_LOCALE, code)}
+                    </span>
+                    <span className={styles.currencyButtonCode}>{code}</span>
                   </button>
                 ))}
               </div>
@@ -163,7 +168,9 @@ export default function App() {
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                 />
-                <span className={styles.currencyBadge}>{currency}</span>
+                <span className={styles.currencyBadge}>
+                  {getCurrencySymbol(APP_LOCALE, currency)}
+                </span>
               </div>
             </div>
 
@@ -236,7 +243,7 @@ export default function App() {
 
           <section className={styles.results}>
             <div className={styles.resultRow}>
-              <span className={styles.resultLabel}>Cena zboží v Kč</span>
+              <span className={styles.resultLabel}>Hodnota vč. dopravy</span>
               <span className={styles.resultValue}>
                 {hasInput ? formatCzk(priceCzk) : '—'}
               </span>
