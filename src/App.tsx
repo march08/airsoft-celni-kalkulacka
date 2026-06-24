@@ -8,7 +8,6 @@ import {
 } from './api/exchangeRates';
 import {
   LOW_VALUE_DUTY_PER_ITEM_EUR,
-  LOW_VALUE_DUTY_START_DATE,
   LOW_VALUE_THRESHOLD_EUR,
   TAX_RATE,
   VAT_RATE,
@@ -21,6 +20,9 @@ const HANDLING_FEE_CZK = 350;
 const PAYPAL_CONVERSION_MARKUP = 0.04;
 const CUSTOMS_PORTAL_URL =
   'https://cportal.celnisprava.gov.cz/web/portal/celni-prohlaseni';
+const ECEP_URL = 'https://cportal.celnisprava.gov.cz/web/portal/ecep';
+const EORI_AD_HOC_URL =
+  'https://celnisprava.gov.cz/cz/aplikace/Stranky/eoriadhoc.aspx';
 
 const CURRENCIES = CURRENCY_CODES;
 
@@ -47,14 +49,6 @@ function formatRate(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   }).format(value);
-}
-
-function formatDutyStartDate() {
-  return new Intl.DateTimeFormat('cs-CZ', {
-    day: 'numeric',
-    month: 'numeric',
-    year: 'numeric',
-  }).format(LOW_VALUE_DUTY_START_DATE);
 }
 
 export default function App() {
@@ -89,7 +83,6 @@ export default function App() {
     priceCzk,
     priceEur,
     isLowValueShipment,
-    lowValueDutyApplies,
     vatAmount,
     handlingFeeVatAmount,
     taxAmount,
@@ -114,7 +107,6 @@ export default function App() {
       priceCzk: converted,
       priceEur: inEur,
       isLowValueShipment: customs.isLowValueShipment,
-      lowValueDutyApplies: customs.lowValueDutyApplies,
       vatAmount: customs.vatAmount,
       handlingFeeVatAmount: customs.handlingFeeVatAmount,
       taxAmount: customs.taxAmount,
@@ -133,7 +125,7 @@ export default function App() {
       <header className={styles.header}>
         <h1 className={styles.title}>Airsoft celní kalkulačka</h1>
         <p className={styles.subtitle}>
-          Odhad nákladů na dovoz airsoft zboží do České republiky
+          Odhad nákladů na dovoz airsoftových věcí do ČR
         </p>
       </header>
 
@@ -141,8 +133,8 @@ export default function App() {
         <div className={styles.column}>
           <section className={styles.card}>
             <div className={styles.field}>
-              <span className={styles.fieldLabel}>Měna ceny</span>
-              <div className={styles.currencyToggle} role="group" aria-label="Měna ceny">
+              <span className={styles.fieldLabel}>Měna objednávky</span>
+              <div className={styles.currencyToggle} role="group" aria-label="Měna objednávky">
                 {CURRENCIES.map((code) => (
                   <button
                     key={code}
@@ -160,7 +152,7 @@ export default function App() {
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="price">Celková cena zboží včetně dopravy</label>
+              <label htmlFor="price">Celková hodnota objednávky (včetně dopravy)</label>
               <div className={styles.priceInput}>
                 <input
                   id="price"
@@ -187,7 +179,7 @@ export default function App() {
                 onChange={(e) => setTariffLineCount(e.target.value)}
               />
               <span className={styles.fieldHint}>
-                U zásilek do {LOW_VALUE_THRESHOLD_EUR} EUR od 1. 7. 2026: clo{' '}
+                U zásilek do {LOW_VALUE_THRESHOLD_EUR} EUR: clo{' '}
                 {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za každý druh zboží (ne za kus). Více kusů
                 stejného produktu = 1 položka.
               </span>
@@ -229,20 +221,15 @@ export default function App() {
                 Zásilka pod {LOW_VALUE_THRESHOLD_EUR} EUR
               </h2>
               <p>
-                Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH
-                {lowValueDutyApplies
-                  ? ` a clo ${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží`
-                  : `, clo se do ${formatDutyStartDate()} neplatí`}
-                .
+                Hodnota zásilky: <strong>{formatEur(priceEur)}</strong> — platí se DPH a clo{' '}
+                {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za celní položku.
               </p>
               <p>
-                Nemusíte podávat prohlášení přes Českou poštu. Volitelně můžete podat
+                Doporučeno  podat
                 elektronické celní prohlášení přes{' '}
                 <a href={CUSTOMS_PORTAL_URL} target="_blank" rel="noopener noreferrer">
                   cPortál Celní správy
-                </a>
-                . Pokud jste DPH uhradili na e-shopu (IOSS), uveďte IOSS číslo — jinak hrozí
-                dvojí vyměření DPH.
+                </a>. Vyhnete se platbě za zastupování Českou poštou (~350 Kč + DPH). Formuář od ČP není potřeba vůbec vyplňovat.
               </p>
             </aside>
           )}
@@ -259,17 +246,11 @@ export default function App() {
               <div className={styles.resultRow}>
                 <span className={styles.resultLabel}>
                   {isLowValueShipment
-                    ? lowValueDutyApplies
-                      ? `Clo (${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR × ${numericTariffLines} druhů)`
-                      : 'Clo'
+                    ? `Clo (${LOW_VALUE_DUTY_PER_ITEM_EUR} EUR × ${numericTariffLines} položek)`
                     : `Clo (${TAX_RATE * 100} %)`}
                 </span>
                 <span className={styles.resultValueMuted}>
-                  {hasInput
-                    ? isLowValueShipment && !lowValueDutyApplies
-                      ? 'Není třeba'
-                      : formatCzk(taxAmount)
-                    : '—'}
+                  {hasInput ? formatCzk(taxAmount) : '—'}
                 </span>
               </div>
               <div className={styles.resultRow}>
@@ -333,12 +314,43 @@ export default function App() {
         </div>
       </div>
 
+      <section className={styles.tips} aria-labelledby="tips-heading">
+        <h2 id="tips-heading" className={styles.tipsTitle}>
+          Tipy a odkazy
+        </h2>
+        <ol className={styles.tipsList}>
+          <li>
+            Celní kód pro airsoftové zboží je <strong>930400</strong>.
+          </li>
+          <li>
+            <a href={ECEP_URL} target="_blank" rel="noopener noreferrer">
+              eCeP — elektronické celní prohlášení
+            </a>
+            <span className={styles.tipsLinkHint}>
+              {' '}
+              (zásilky do {LOW_VALUE_THRESHOLD_EUR} EUR, bez poplatku za zastoupení)
+            </span>
+          </li>
+          <li>
+            Při nákupu <strong>airsoftových zbraní</strong> často potřebujete pro podání celního prohlášení ad-hoc EORI (Evropské osobní identifikační číslo). Nepodnikající osoby si ho
+            jednorázově vygenerují online —{' '}
+            <a href={EORI_AD_HOC_URL} target="_blank" rel="noopener noreferrer">
+              ad hoc EORI
+            </a>.
+            Někdy si jej celní řízení vyžádá, můžete jej rovnou dodat jako přílohu k prohlášení přes formulář České pošty. Ušetříte tím cca 2-3 dny.
+          </li>
+          <li>
+            V případě dopravy s <strong>UPS</strong> je poplatek za zastupání během celního řízení <strong>450 Kč</strong>. Doprava a celý průběh bývá rychlejší, většinou jsou celní údaje prodejcem dodané správně a nemusíte řešit vyplňování formuláře.
+          </li>
+        </ol>
+      </section>
+
       <footer className={styles.footer}>
         <p>
-          Nad {LOW_VALUE_THRESHOLD_EUR} EUR: clo {TAX_RATE * 100} %, DPH {VAT_RATE * 100} % z
-          (zboží + clo), poplatek České pošty {HANDLING_FEE_CZK} Kč + DPH z poplatku. Do{' '}
-          {LOW_VALUE_THRESHOLD_EUR} EUR: DPH z hodnoty zboží; od 1. 7. 2026 navíc clo{' '}
-          {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží (DPH pak z hodnoty včetně cla).
+          Nad {LOW_VALUE_THRESHOLD_EUR} EUR: clo {TAX_RATE * 100} %, DPH {VAT_RATE * 100} %
+          (hodnota objednávky + clo), poplatek České pošty za proclení {HANDLING_FEE_CZK} Kč + DPH z poplatku. Do{' '}
+          {LOW_VALUE_THRESHOLD_EUR} EUR: DPH z hodnoty zboží + clo{' '}
+          {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za celní položku (DPH pak z hodnoty včetně cla).
         </p>
         <p>
           Celkem včetně PayPal: odhadovaná částka k úhradě + cca{' '}
