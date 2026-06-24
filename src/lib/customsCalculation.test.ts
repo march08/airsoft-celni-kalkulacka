@@ -40,10 +40,13 @@ describe('calculateCustomsFees', () => {
     });
 
     expect(result.isLowValueShipment).toBe(false);
-    expect(result.vatAmount).toBe(priceCzk * 0.21);
-    expect(result.taxAmount).toBe(priceCzk * 1.21 * 0.03);
+    expect(result.taxAmount).toBe(priceCzk * 0.032);
+    expect(result.vatAmount).toBe(priceCzk * 1.032 * 0.21);
+    expect(result.handlingFeeVatAmount).toBe(350 * 0.21);
     expect(result.handlingFee).toBe(350);
-    expect(result.customsTotal).toBe(priceCzk * 1.21 * 1.03 + 350);
+    expect(result.customsTotal).toBe(
+      (priceCzk + priceCzk * 0.032 + 350) * 1.21
+    );
   });
 
   it('calculates low-value import with only VAT before July 2026', () => {
@@ -61,6 +64,7 @@ describe('calculateCustomsFees', () => {
     expect(result.vatAmount).toBe(420);
     expect(result.taxAmount).toBe(0);
     expect(result.handlingFee).toBe(0);
+    expect(result.handlingFeeVatAmount).toBe(0);
     expect(result.customsTotal).toBe(priceCzk * 1.21);
   });
 
@@ -76,7 +80,8 @@ describe('calculateCustomsFees', () => {
 
     expect(result.lowValueDutyApplies).toBe(true);
     expect(result.taxAmount).toBe(2 * 3 * EUR_RATE);
-    expect(result.customsTotal).toBe(priceCzk * 1.21 + 150);
+    expect(result.vatAmount).toBe((priceCzk + 150) * 0.21);
+    expect(result.customsTotal).toBe(priceCzk + 150 + (priceCzk + 150) * 0.21);
   });
 
   it('includes goods value in customsTotal', () => {

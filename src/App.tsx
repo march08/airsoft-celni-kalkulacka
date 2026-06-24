@@ -10,6 +10,7 @@ import {
   LOW_VALUE_DUTY_PER_ITEM_EUR,
   LOW_VALUE_DUTY_START_DATE,
   LOW_VALUE_THRESHOLD_EUR,
+  TAX_RATE,
   VAT_RATE,
   calculateCustomsFees,
 } from './lib/customsCalculation';
@@ -17,7 +18,6 @@ import { RATES_STALE_TIME_MS } from './queryClient';
 import styles from './App.module.css';
 
 const HANDLING_FEE_CZK = 350;
-const TAX_RATE = 0.03;
 const PAYPAL_CONVERSION_MARKUP = 0.04;
 const CUSTOMS_PORTAL_URL =
   'https://cportal.celnisprava.gov.cz/web/portal/celni-prohlaseni';
@@ -91,6 +91,7 @@ export default function App() {
     isLowValueShipment,
     lowValueDutyApplies,
     vatAmount,
+    handlingFeeVatAmount,
     taxAmount,
     handlingFee,
     feesTotal,
@@ -115,6 +116,7 @@ export default function App() {
       isLowValueShipment: customs.isLowValueShipment,
       lowValueDutyApplies: customs.lowValueDutyApplies,
       vatAmount: customs.vatAmount,
+      handlingFeeVatAmount: customs.handlingFeeVatAmount,
       taxAmount: customs.taxAmount,
       handlingFee: customs.handlingFee,
       feesTotal: customs.feesTotal,
@@ -255,12 +257,6 @@ export default function App() {
 
             <div className={styles.breakdown}>
               <div className={styles.resultRow}>
-                <span className={styles.resultLabel}>DPH ({VAT_RATE * 100} %)</span>
-                <span className={styles.resultValueMuted}>
-                  {hasInput ? formatCzk(vatAmount) : '—'}
-                </span>
-              </div>
-              <div className={styles.resultRow}>
                 <span className={styles.resultLabel}>
                   {isLowValueShipment
                     ? lowValueDutyApplies
@@ -277,6 +273,12 @@ export default function App() {
                 </span>
               </div>
               <div className={styles.resultRow}>
+                <span className={styles.resultLabel}>DPH ({VAT_RATE * 100} %)</span>
+                <span className={styles.resultValueMuted}>
+                  {hasInput ? formatCzk(vatAmount) : '—'}
+                </span>
+              </div>
+              <div className={styles.resultRow}>
                 <span className={styles.resultLabel}>Poplatek za zastoupení Českou poštou</span>
                 <span className={styles.resultValueMuted}>
                   {hasInput
@@ -286,10 +288,20 @@ export default function App() {
                     : '—'}
                 </span>
               </div>
+              {!isLowValueShipment && (
+                <div className={styles.resultRow}>
+                  <span className={styles.resultLabel}>
+                    DPH z poplatku ({VAT_RATE * 100} %)
+                  </span>
+                  <span className={styles.resultValueMuted}>
+                    {hasInput ? formatCzk(handlingFeeVatAmount) : '—'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className={styles.resultRow}>
-              <span className={styles.resultLabel}>DPH, clo a poplatky celkem</span>
+              <span className={styles.resultLabel}>Clo, DPH a poplatky celkem</span>
               <span className={styles.resultValue}>
                 {hasInput ? formatCzk(feesTotal) : '—'}
               </span>
@@ -323,9 +335,10 @@ export default function App() {
 
       <footer className={styles.footer}>
         <p>
-          Nad {LOW_VALUE_THRESHOLD_EUR} EUR: DPH {VAT_RATE * 100} % + clo {TAX_RATE * 100} % +
-          poplatek České pošty {HANDLING_FEE_CZK} Kč. Do {LOW_VALUE_THRESHOLD_EUR} EUR: pouze
-          DPH; od 1. 7. 2026 navíc clo {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží.
+          Nad {LOW_VALUE_THRESHOLD_EUR} EUR: clo {TAX_RATE * 100} %, DPH {VAT_RATE * 100} % z
+          (zboží + clo), poplatek České pošty {HANDLING_FEE_CZK} Kč + DPH z poplatku. Do{' '}
+          {LOW_VALUE_THRESHOLD_EUR} EUR: DPH z hodnoty zboží; od 1. 7. 2026 navíc clo{' '}
+          {LOW_VALUE_DUTY_PER_ITEM_EUR} EUR za druh zboží (DPH pak z hodnoty včetně cla).
         </p>
         <p>
           Celkem včetně PayPal: odhadovaná částka k úhradě + cca{' '}

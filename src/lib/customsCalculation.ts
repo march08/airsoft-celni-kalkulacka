@@ -1,5 +1,5 @@
 export const VAT_RATE = 0.21;
-export const TAX_RATE = 0.03;
+export const TAX_RATE = 0.032;
 export const HANDLING_FEE_CZK = 350;
 export const LOW_VALUE_THRESHOLD_EUR = 150;
 export const LOW_VALUE_DUTY_PER_ITEM_EUR = 3;
@@ -17,6 +17,7 @@ export interface CustomsCalculationResult {
   isLowValueShipment: boolean;
   lowValueDutyApplies: boolean;
   vatAmount: number;
+  handlingFeeVatAmount: number;
   taxAmount: number;
   handlingFee: number;
   feesTotal: number;
@@ -39,8 +40,6 @@ export function calculateCustomsFees(
   const lowValue = isLowValueShipment(priceEur);
   const lowValueDutyApplies = lowValue && isLowValueDutyInEffect(referenceDate);
 
-  const vatAmount = priceCzk * VAT_RATE;
-
   let taxAmount: number;
   let handlingFee: number;
 
@@ -50,18 +49,21 @@ export function calculateCustomsFees(
       : 0;
     handlingFee = 0;
   } else {
-    // Equivalent to price × 1.21 × 1.03: duty on VAT-inclusive value for airsoft (3%).
-    taxAmount = priceCzk * (1 + VAT_RATE) * TAX_RATE;
+    taxAmount = priceCzk * TAX_RATE;
     handlingFee = HANDLING_FEE_CZK;
   }
 
-  const feesTotal = vatAmount + taxAmount + handlingFee;
+  const vatAmount = (priceCzk + taxAmount) * VAT_RATE;
+  const handlingFeeVatAmount = handlingFee * VAT_RATE;
+
+  const feesTotal = vatAmount + handlingFeeVatAmount + taxAmount + handlingFee;
   const customsTotal = priceCzk + feesTotal;
 
   return {
     isLowValueShipment: lowValue,
     lowValueDutyApplies,
     vatAmount,
+    handlingFeeVatAmount,
     taxAmount,
     handlingFee,
     feesTotal,
